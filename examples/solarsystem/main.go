@@ -21,6 +21,7 @@ const ConstNodesUse = false
 
 const simulationTime = 200000.0
 const timeStep = 1.0
+const timeStepSave = 100.0 // don't save data of every iteration
 
 // See "Geometric Numerical Integration" p. 13ff for the data for "The Outer Solar System"
 
@@ -299,13 +300,17 @@ func main() {
 	machine := G.NewTapeMachine(g, G.WithPrecompiled(prog, locMap))
 
 	timeSteps := int(math.Ceil(simulationTime / timeStep))
-	trajectoryPointsNrOf := timeSteps * objectNrOf * DimQNrOf
+	timeStepsSave := int(math.Floor(simulationTime / timeStepSave))
+
+	trajectoryPointsNrOf := timeStepsSave * objectNrOf * DimQNrOf
 	trajectoryX := make([]float64, trajectoryPointsNrOf, trajectoryPointsNrOf)
-	trajectoryTime := make([]float64, timeSteps, timeSteps)
+	trajectoryTime := make([]float64, timeStepsSave, timeStepsSave)
 	time := 0.0
 
 	machine.Let(x, xT)
 
+	lastTimeStepSaved := 0.0
+	numberStepSaved := 0
 	for stepNr := 0; stepNr < timeSteps; stepNr++ {
 		machine.Reset()
 
@@ -317,9 +322,15 @@ func main() {
 		time += timeStep
 
 		// Save to trajectory data
-		trajectoryTime[stepNr] = time
-		xFloats := x.Value().Data().([]float64)
-		copy(trajectoryX[stepNr*objectNrOf*DimQNrOf:], xFloats[0:objectNrOf*DimQNrOf])
+		if timeStepSave <= time-lastTimeStepSaved {
+			lastTimeStepSaved = time
+
+			trajectoryTime[numberStepSaved] = time
+			xFloats := x.Value().Data().([]float64)
+			copy(trajectoryX[numberStepSaved*objectNrOf*DimQNrOf:], xFloats[0:objectNrOf*DimQNrOf])
+
+			numberStepSaved++
+		}
 
 		/*
 				fmt.Println("H", H.Value())
