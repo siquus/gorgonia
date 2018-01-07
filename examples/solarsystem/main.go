@@ -20,7 +20,7 @@ import (
 const ConstNodesUse = false
 
 const simulationTime = 200000.0
-const timeStep = 0.5
+const timeStep = 1.0
 
 // See "Geometric Numerical Integration" p. 13ff for the data for "The Outer Solar System"
 
@@ -165,7 +165,7 @@ func main() {
 	if ConstNodesUse {
 		diagMasses = G.NewConstant(diagMassesT, G.WithName("Diag Masses"))
 	} else {
-		diagMasses = G.NewTensor(g, G.Float64, 2, G.WithShape(diagMassesT.Shape()...), G.WithName("Diag Masses"))
+		diagMasses = G.NewTensor(g, G.Float64, 2, G.WithShape(diagMassesT.Shape()...), G.WithName("Diag Masses"), G.WithValue(diagMassesT))
 	}
 
 	pWeighted, err := G.Mul(diagMasses, p)
@@ -188,7 +188,7 @@ func main() {
 	if ConstNodesUse {
 		diffGenMatrix = G.NewConstant(diffGenMatrixT, G.WithName("diffGenMatrix"))
 	} else {
-		diffGenMatrix = G.NewTensor(g, G.Float64, 2, G.WithShape(diffGenMatrixT.Shape()...), G.WithName("diffGenMatrix"))
+		diffGenMatrix = G.NewTensor(g, G.Float64, 2, G.WithShape(diffGenMatrixT.Shape()...), G.WithName("diffGenMatrix"), G.WithValue(diffGenMatrixT))
 	}
 
 	qDiffs, err := G.Mul(diffGenMatrix, q)
@@ -204,7 +204,7 @@ func main() {
 	if ConstNodesUse {
 		partVecSumMatrix = G.NewConstant(partVecSumMatrixT, G.WithName("partVecSumMatrix")) // TODO: Make it constant again
 	} else {
-		partVecSumMatrix = G.NewTensor(g, G.Float64, 2, G.WithShape(partVecSumMatrixT.Shape()...), G.WithName("partVecSumMatrix"))
+		partVecSumMatrix = G.NewTensor(g, G.Float64, 2, G.WithShape(partVecSumMatrixT.Shape()...), G.WithName("partVecSumMatrix"), G.WithValue(partVecSumMatrixT))
 	}
 
 	objectDistsSquared, err := G.Mul(partVecSumMatrix, qDiffsSquared)
@@ -225,7 +225,7 @@ func main() {
 		massWeightedSumVec = G.NewConstant(massWeightedSumVecT, G.WithName("massWeightedSumVec")) // TODO: Make it constant again
 	} else {
 
-		massWeightedSumVec = G.NewTensor(g, G.Float64, 1, G.WithShape(massWeightedSumVecT.Shape()...), G.WithName("massWeightedSumVec"))
+		massWeightedSumVec = G.NewTensor(g, G.Float64, 1, G.WithShape(massWeightedSumVecT.Shape()...), G.WithName("massWeightedSumVec"), G.WithValue(massWeightedSumVecT))
 	}
 
 	VmissingG, err := G.Mul(massWeightedSumVec, objectDistsInv)
@@ -236,7 +236,7 @@ func main() {
 	if ConstNodesUse {
 		gravConst = G.NewConstant(GravConst, G.WithName("Gravitational Constant")) // TODO: Make it constant again
 	} else {
-		gravConst = G.NewScalar(g, G.Float64, G.WithName("Gravitational Constant"))
+		gravConst = G.NewScalar(g, G.Float64, G.WithName("Gravitational Constant"), G.WithValue(GravConst))
 	}
 
 	V, err := G.Mul(VmissingG, gravConst)
@@ -256,7 +256,7 @@ func main() {
 		J = G.NewConstant(JT, G.WithName("J")) // TODO: Make this constant again
 	} else {
 
-		J = G.NewTensor(g, G.Float64, 2, G.WithShape(JT.Shape()...), G.WithName("J"))
+		J = G.NewTensor(g, G.Float64, 2, G.WithShape(JT.Shape()...), G.WithName("J"), G.WithValue(JT))
 	}
 
 	XH, err := G.Mul(J, dH[0])
@@ -267,7 +267,7 @@ func main() {
 	if ConstNodesUse {
 		ones = G.NewConstant(onesT, G.WithName("ones")) // TODO: Make this constant again
 	} else {
-		ones = G.NewTensor(g, G.Float64, 2, G.WithShape(onesT.Shape()...), G.WithName("ones"))
+		ones = G.NewTensor(g, G.Float64, 2, G.WithShape(onesT.Shape()...), G.WithName("ones"), G.WithValue(onesT))
 	}
 
 	XHprintout, err := G.Mul(ones, XH)
@@ -277,7 +277,7 @@ func main() {
 	if ConstNodesUse {
 		epsilon = G.NewConstant(timeStep) // TODO: Make this constant again
 	} else {
-		epsilon = G.NewScalar(g, G.Float64, G.WithName("Epsilon"))
+		epsilon = G.NewScalar(g, G.Float64, G.WithName("Epsilon"), G.WithValue(timeStep))
 	}
 
 	step, err := G.Mul(XH, epsilon)
@@ -305,17 +305,6 @@ func main() {
 	time := 0.0
 
 	machine.Let(x, xT)
-
-	if !ConstNodesUse {
-		machine.Let(diffGenMatrix, diffGenMatrixT)
-		machine.Let(diagMasses, diagMassesT)
-		machine.Let(partVecSumMatrix, partVecSumMatrixT)
-		machine.Let(massWeightedSumVec, massWeightedSumVecT)
-		machine.Let(J, JT)
-		machine.Let(ones, onesT)
-		machine.Let(gravConst, GravConst)
-		machine.Let(epsilon, timeStep)
-	}
 
 	for stepNr := 0; stepNr < timeSteps; stepNr++ {
 		machine.Reset()
