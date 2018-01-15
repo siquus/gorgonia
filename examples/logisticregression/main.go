@@ -12,7 +12,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	G "github.com/chewxy/gorgonia"
+	G "gorgonia.org/gorgonia"
 	"gorgonia.org/tensor"
 	// cblas "gonum.org/v1/netlib/blas/netlib"
 )
@@ -173,6 +173,7 @@ func main() {
 	fmt.Printf("Final Model: \nw: %3.3s\nb: %+3.3s\n", w.Value(), b.Value())
 
 	fmt.Printf("Target values: %#v\n", yT)
+	log.Printf("START")
 	prog, locMap, err = G.CompileFunction(g, G.Nodes{x}, G.Nodes{pred})
 	handleError(err)
 	machine = G.NewTapeMachine(g, G.WithPrecompiled(prog, locMap))
