@@ -17,8 +17,6 @@ import (
 
 /* Constants **********************************************************************************************************/
 
-const ConstNodesUse = false
-
 const simulationTime = 200000.0
 const timeStep = 1.0
 const timeStepSave = 100.0 // don't save data of every iteration
@@ -160,14 +158,8 @@ func main() {
 		pWeightSlice[index] = 1.0 / (2.0 * objectMasses[index])
 	}
 
-	// TODO: Make it constant again
-	var diagMasses *G.Node
 	diagMassesT := NewWeightedDiagMatrix(objectNrOf*DimPNrOf, pWeightSlice)
-	if ConstNodesUse {
-		diagMasses = G.NewConstant(diagMassesT, G.WithName("Diag Masses"))
-	} else {
-		diagMasses = G.NewTensor(g, G.Float64, 2, G.WithShape(diagMassesT.Shape()...), G.WithName("Diag Masses"), G.WithValue(diagMassesT))
-	}
+	diagMasses := G.NewConstant(diagMassesT, G.WithName("Diag Masses"))
 
 	pWeighted, err := G.Mul(diagMasses, p)
 	handleError(err)
@@ -183,14 +175,8 @@ func main() {
 
 	// Create vector of unique differences
 	// (q_1_1 - q_2_1, q_1_2 - q_2_2, q_1_3 - q_2_3, q_1_1 - q_3_1, ...), where q_[ObjectNr]_[DimQ]
-	// TODO: Make it constant again
-	var diffGenMatrix *G.Node
 	diffGenMatrixT := NewDifferenceGeneratorMatrix(objectNrOf, DimQNrOf)
-	if ConstNodesUse {
-		diffGenMatrix = G.NewConstant(diffGenMatrixT, G.WithName("diffGenMatrix"))
-	} else {
-		diffGenMatrix = G.NewTensor(g, G.Float64, 2, G.WithShape(diffGenMatrixT.Shape()...), G.WithName("diffGenMatrix"), G.WithValue(diffGenMatrixT))
-	}
+	diffGenMatrix := G.NewConstant(diffGenMatrixT, G.WithName("diffGenMatrix"))
 
 	qDiffs, err := G.Mul(diffGenMatrix, q)
 	handleError(err)
@@ -201,12 +187,7 @@ func main() {
 
 	// Create vector of |q_i - q_j|^2 terms: (|q_1 - q_2|^2, |q_1 - q_3|^2, ...)
 	partVecSumMatrixT := NewPartialVectorSumMatrix(DimQNrOf, qDiffsSquared.Shape()[0])
-	var partVecSumMatrix *G.Node
-	if ConstNodesUse {
-		partVecSumMatrix = G.NewConstant(partVecSumMatrixT, G.WithName("partVecSumMatrix")) // TODO: Make it constant again
-	} else {
-		partVecSumMatrix = G.NewTensor(g, G.Float64, 2, G.WithShape(partVecSumMatrixT.Shape()...), G.WithName("partVecSumMatrix"), G.WithValue(partVecSumMatrixT))
-	}
+	partVecSumMatrix := G.NewConstant(partVecSumMatrixT, G.WithName("partVecSumMatrix"))
 
 	objectDistsSquared, err := G.Mul(partVecSumMatrix, qDiffsSquared)
 	handleError(err)
@@ -221,24 +202,13 @@ func main() {
 
 	// Create V / G = \Sum_{i<j} m_i*m_j / |q_i - q_j|
 	massWeightedSumVecT := NewMassWeightedSumVector(objectMasses[:], objectDistsInv.Shape()[0])
-	var massWeightedSumVec *G.Node
-	if ConstNodesUse {
-		massWeightedSumVec = G.NewConstant(massWeightedSumVecT, G.WithName("massWeightedSumVec")) // TODO: Make it constant again
-	} else {
-
-		massWeightedSumVec = G.NewTensor(g, G.Float64, 1, G.WithShape(massWeightedSumVecT.Shape()...), G.WithName("massWeightedSumVec"), G.WithValue(massWeightedSumVecT))
-	}
+	massWeightedSumVec := G.NewConstant(massWeightedSumVecT, G.WithName("massWeightedSumVec"))
 
 	VmissingG, err := G.Mul(massWeightedSumVec, objectDistsInv)
 	handleError(err)
 
 	// Create V = G * \Sum_{i<j} m_i*m_j / |q_i - q_j|
-	var gravConst *G.Node
-	if ConstNodesUse {
-		gravConst = G.NewConstant(GravConst, G.WithName("Gravitational Constant")) // TODO: Make it constant again
-	} else {
-		gravConst = G.NewScalar(g, G.Float64, G.WithName("Gravitational Constant"), G.WithValue(GravConst))
-	}
+	gravConst := G.NewConstant(GravConst, G.WithName("Gravitational Constant"))
 
 	V, err := G.Mul(VmissingG, gravConst)
 	handleError(err)
@@ -252,34 +222,19 @@ func main() {
 	handleError(err)
 
 	JT := NewSymplecticMatrix(tensor.Float64, objectNrOf*DimNrOf)
-	var J *G.Node
-	if ConstNodesUse {
-		J = G.NewConstant(JT, G.WithName("J")) // TODO: Make this constant again
-	} else {
-
-		J = G.NewTensor(g, G.Float64, 2, G.WithShape(JT.Shape()...), G.WithName("J"), G.WithValue(JT))
-	}
+	J := G.NewConstant(JT, G.WithName("J"))
 
 	XH, err := G.Mul(J, dH[0])
 	handleError(err)
 
-	var ones *G.Node
 	onesT := NewWeightedDiagMatrix(XH.Shape()[0], 1.0)
-	if ConstNodesUse {
-		ones = G.NewConstant(onesT, G.WithName("ones")) // TODO: Make this constant again
-	} else {
-		ones = G.NewTensor(g, G.Float64, 2, G.WithShape(onesT.Shape()...), G.WithName("ones"), G.WithValue(onesT))
-	}
+	ones := G.NewConstant(onesT, G.WithName("ones"))
 
 	XHprintout, err := G.Mul(ones, XH)
 
 	// Calculate new coordinates
-	var epsilon *G.Node
-	if ConstNodesUse {
-		epsilon = G.NewConstant(timeStep) // TODO: Make this constant again
-	} else {
-		epsilon = G.NewScalar(g, G.Float64, G.WithName("Epsilon"), G.WithValue(timeStep))
-	}
+
+	epsilon := G.NewConstant(timeStep)
 
 	step, err := G.Mul(XH, epsilon)
 	handleError(err)
