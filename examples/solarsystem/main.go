@@ -13,11 +13,15 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+
+	"github.com/cheggaaa/pb"
+
+	"time"
 )
 
 /* Constants **********************************************************************************************************/
 
-const simulationTime = 200000.0
+const simulationTime = 20000.0
 const timeStep = 1.0
 const timeStepSave = 100.0 // don't save data of every iteration
 
@@ -260,9 +264,20 @@ func main() {
 	trajectoryPointsNrOf := timeStepsSave * objectNrOf * DimQNrOf
 	trajectoryX := make([]float64, trajectoryPointsNrOf, trajectoryPointsNrOf)
 	trajectoryTime := make([]float64, timeStepsSave, timeStepsSave)
-	time := 0.0
+	runTime := 0.0
 
 	machine.Let(x, xT)
+
+	fmt.Println("Starting simulation...")
+	fmt.Println()
+
+	// Initialize progress bar
+	bar := pb.New(timeSteps)
+	bar.Prefix("Step")
+	bar.SetRefreshRate(time.Second)
+	bar.SetMaxWidth(80)
+	bar.Set(0)
+	bar.Start()
 
 	lastTimeStepSaved := 0.0
 	numberStepSaved := 0
@@ -274,17 +289,20 @@ func main() {
 
 		machine.Set(x, xUpdated)
 
-		time += timeStep
+		runTime += timeStep
 
 		// Save to trajectory data
-		if timeStepSave <= time-lastTimeStepSaved {
-			lastTimeStepSaved = time
+		if timeStepSave <= runTime-lastTimeStepSaved {
+			lastTimeStepSaved = runTime
 
-			trajectoryTime[numberStepSaved] = time
+			trajectoryTime[numberStepSaved] = runTime
 			xFloats := x.Value().Data().([]float64)
 			copy(trajectoryX[numberStepSaved*objectNrOf*DimQNrOf:], xFloats[0:objectNrOf*DimQNrOf])
 
 			numberStepSaved++
+
+			// Printout progress
+			bar.Set(stepNr + 1) // step starts with 0..
 		}
 
 		/*
@@ -315,15 +333,29 @@ func main() {
 		//fmt.Println("objDists", objectDistsFl)
 
 		/*
-			XHFloats := XHprintout.Value().Data().([]float64)
+			xd, _ := x.Grad()
 
-			fmt.Println("q", xFloats[3:6])
-			fmt.Println("qdot", xFloats[12]/objectMasses[objectJupiter], xFloats[13]/objectMasses[objectJupiter], xFloats[14]/objectMasses[objectJupiter])
-			fmt.Println("qdotdot", XHFloats[12]/objectMasses[objectJupiter], XHFloats[13]/objectMasses[objectJupiter], XHFloats[14]/objectMasses[objectJupiter])
+			xdFloats := xd.Data().([]float64)
+
+
+				fmt.Println("q", xFloats[3:6])
+				fmt.Println("qdot", xFloats[12]/objectMasses[objectJupiter], xFloats[13]/objectMasses[objectJupiter], xFloats[14]/objectMasses[objectJupiter])
+				fmt.Println("qdotdot", XHFloats[12]/objectMasses[objectJupiter], XHFloats[13]/objectMasses[objectJupiter], XHFloats[14]/objectMasses[objectJupiter])
+
+
+			fmt.Println()
+			fmt.Println("dH", dHFloats[3:6])
+			fmt.Println("xd", xdFloats[3:6])
+			fmt.Println()
 		*/
 	}
 
+	// Finish bar
+	bar.Finish()
+	fmt.Println()
+
 	// Export Data
+	fmt.Println("Exporting data...")
 	err = TrajectoryJsonExport(trajectoryTime, trajectoryX)
 	handleError(err)
 
