@@ -252,7 +252,7 @@ func main() {
 	// To convert to png
 	ioutil.WriteFile("solarSystem.dot", []byte(g.ToDot()), 0644)
 
-	// Run the Graph
+	// Create a machine
 	prog, locMap, err := G.CompileFunction(g, G.Nodes{x}, G.Nodes{xUpdated, XHprintout})
 	handleError(err)
 
@@ -278,6 +278,8 @@ func main() {
 	bar.SetMaxWidth(80)
 	bar.Set(0)
 	bar.Start()
+
+	// Run the machine
 
 	lastTimeStepSaved := 0.0
 	numberStepSaved := 0
