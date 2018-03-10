@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/graph/topo"
+	"gorgonia.org/tensor"
 )
 
 func TestForwardDiffAnalysis(t *testing.T) {
@@ -161,4 +162,68 @@ func TestCompoundOpDiff(t *testing.T) {
 		t.Error("Expected child1 to be (+)")
 	}
 
+}
+
+func TestBackpropagateMulti(t *testing.T) {
+	// Test that BackpropagateMulti does indeed take the derivatives of two functions (x*y and 2*x*y)
+
+	assert := assert.New(t)
+
+	xInit := 3.0
+	yInit := 4.0
+
+	g := NewGraph()
+
+	z := NewTensor(g, Float64, 1, WithShape(2), WithName("z"))
+
+	aN := NewConstant(1.0, WithName("a"))
+	bN := NewConstant(2.0, WithName("b"))
+
+	xProjFloat := []float64{1, 0}
+	xProj := NewConstant(tensor.New(tensor.WithBacking(xProjFloat), tensor.WithShape(2)))
+
+	yProjFloat := []float64{0, 1}
+	yProj := NewConstant(tensor.New(tensor.WithBacking(yProjFloat), tensor.WithShape(2)))
+
+	x := Must(Mul(z, xProj))
+	y := Must(Mul(z, yProj))
+
+	ax := Must(Mul(x, aN))
+	by := Must(Mul(y, bN))
+
+	xy := Must(Mul(x, y))
+
+	axby := Must(Mul(ax, by))
+
+	gradOut := xy.g.AddNode(onef64)
+
+	dxy, err := BackpropagateMulti(Nodes{xy}, Nodes{gradOut}, Nodes{z})
+	if nil != err {
+		t.Fatal("dxy", err)
+	}
+
+	daxby, err := BackpropagateMulti(Nodes{axby}, Nodes{gradOut}, Nodes{z})
+	if nil != err {
+		t.Fatal("daxby", err)
+	}
+
+	prog, locMap, err := CompileFunction(g, Nodes{z}, Nodes{dxy[0], daxby[0]})
+	if nil != err {
+		t.Fatal("prog", err)
+	}
+
+	machine := NewTapeMachine(g, WithPrecompiled(prog, locMap))
+
+	err = machine.Let(z, tensor.New(tensor.WithBacking([]float64{xInit, yInit}), tensor.WithShape(2)))
+	if nil != err {
+		t.Fatal("Let", err)
+	}
+
+	err = machine.RunAll()
+	if nil != err {
+		t.Fatal("RunAll", err)
+	}
+
+	assert.Equal(dxy[0].Value().Data().([]float64), []float64{4.0, 3.0})
+	assert.Equal(daxby[0].Value().Data().([]float64), []float64{8.0, 6.0})
 }

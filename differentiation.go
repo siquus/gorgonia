@@ -129,17 +129,7 @@ func backwardDiffAnalysis(wrt, sortedNodes Nodes) (retVal NodeSet, err error) {
 	return diffSet, nil
 }
 
-// Backpropagate backpropagates errors by performing revers-emode symbolic differentiation, starting from the outputs, and working its way towads the inputs.
-//
-// This is the rough algorithm:
-//		1. Filter out nodes that are unreachable
-//		2. Forwards analysis, where a list of nodes affecting the output is added to consideration
-//		3. Backwards analysis, where a list of nodes affected by differentiating the output are added to the consideration
-//		4. If there is a difference in both sets, it will cause an error (both sets should be the same)
-//		5. Traverse the graph from output towards input. On each visit, perform the symbolic differentiation
-//
-// For most cases, Grad() should be used instead of Backpropagate(), as Grad() performs several checks which would be the general use case, before calling Backpropagate()
-func Backpropagate(outputs, gradOutputs, wrt Nodes) (retVal Nodes, err error) {
+func backpropagate(outputs, gradOutputs, wrt Nodes, prevDiffedSkip bool) (retVal Nodes, err error) {
 	symdiffLogf("BACKPROP START")
 	symdiffLogf("Outputs: %d", outputs)
 	symdiffLogf("gradOutputs: %d", gradOutputs)
@@ -201,7 +191,7 @@ func Backpropagate(outputs, gradOutputs, wrt Nodes) (retVal Nodes, err error) {
 
 	// map a node to a list of gradient terms
 	// these  gradient terms will be summed up when we visit the node
-	// when iterating through the nondes in reverse topological order
+	// when iterating through the nodes in reverse topological order
 	nodeGradMap := make(map[*Node]Nodes)
 	for i, n := range outputs {
 		symdiffLogf("Adding outputs for %x", n.ID())
@@ -225,7 +215,9 @@ func Backpropagate(outputs, gradOutputs, wrt Nodes) (retVal Nodes, err error) {
 			continue
 		}
 
-		if node.deriv != nil {
+		// TODO: There might be a more efficient way to implement backprop with multiple functions
+		// rather than discarding all derivatives calculated already.
+		if prevDiffedSkip && (node.deriv != nil) {
 			symdiffLogf("skipping %x - previously differentiated", node.ID())
 			nodeGradMap[node] = append(nodeGradMap[node], node.deriv)
 			continue
@@ -321,4 +313,31 @@ func Backpropagate(outputs, gradOutputs, wrt Nodes) (retVal Nodes, err error) {
 		retVal = append(retVal, nodeGradMap[n][0])
 	}
 	return
+}
+
+// Backpropagate backpropagates errors by performing revers-emode symbolic differentiation, starting from the outputs,
+// and working its way towads the inputs.
+//
+// This is the rough algorithm:
+//		1. Filter out nodes that are unreachable
+//		2. Forwards analysis, where a list of nodes affecting the output is added to consideration
+//		3. Backwards analysis, where a list of nodes affected by differentiating the output are added to the consideration
+//		4. If there is a difference in both sets, it will cause an error (both sets should be the same)
+//		5. Traverse the graph from output towards input. On each visit, perform the symbolic differentiation
+//
+// For most cases, Grad() should be used instead of Backpropagate(), as Grad() performs several checks which would be the general use case, before calling Backpropagate()
+//
+// This backpropagate implementation will only backpropagate once, so if run twice with different
+// functions, it will simply report the result from the first run.
+// If several functions should be differentiated, use BackpropagateMulti().
+func Backpropagate(outputs, gradOutputs, wrt Nodes) (retVal Nodes, err error) {
+	return backpropagate(outputs, gradOutputs, wrt, true)
+}
+
+// See Backpropagate() for a detailed description of the underlying algorithm.
+// BackpropagateMulti() will calculate all derivatives every time it is invoked.
+// In particular this means that multiple functions may be differentiated.
+// If only one function should be differentiated on the graph, consider using Backpropagate().
+func BackpropagateMulti(outputs, gradOutputs, wrt Nodes) (retVal Nodes, err error) {
+	return backpropagate(outputs, gradOutputs, wrt, false)
 }
