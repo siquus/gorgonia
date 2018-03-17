@@ -1,4 +1,4 @@
-package gorgonia
+package types
 
 import (
 	"fmt"
@@ -32,10 +32,6 @@ var (
 	f32T hm.Type = tensor.Float32
 )
 
-var acceptableDtypes = [...]tensor.Dtype{tensor.Float64, tensor.Float32, tensor.Int, tensor.Int64, tensor.Int32, tensor.Byte, tensor.Bool}
-
-// MARK FOR DEPRECIATION
-
 /*Tensor Type*/
 
 // TensorType is a type constructor for tensors.
@@ -51,18 +47,18 @@ type TensorType struct {
 	Of hm.Type
 }
 
-func makeFromTensorType(t TensorType, tv hm.TypeVariable) TensorType {
-	return makeTensorType(t.Dims, tv)
+func MakeFromTensorType(t TensorType, tv hm.TypeVariable) TensorType {
+	return MakeTensorType(t.Dims, tv)
 }
 
-func makeTensorType(dims int, typ hm.Type) TensorType {
+func MakeTensorType(dims int, typ hm.Type) TensorType {
 	return TensorType{
 		Dims: dims,
 		Of:   typ,
 	}
 }
 
-func newTensorType(dims int, typ hm.Type) *TensorType {
+func NewTensorType(dims int, typ hm.Type) *TensorType {
 	switch {
 	case dims == 1 && typ == f64T:
 		return vecF64
