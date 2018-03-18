@@ -30,7 +30,7 @@ type tapeMachine struct {
 	watchNodes  Nodes
 	watchRegs   []register
 	logger      *log.Logger
-	buf         *bytes.Buffer
+	buf         bytes.Buffer
 	valueFmt    string
 	tabcount    int
 	logFlags    byte
