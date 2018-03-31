@@ -100,7 +100,7 @@ func backwardDiffAnalysis(wrt, sortedNodes Nodes) (retVal NodeSet, err error) {
 			}
 			g := n.g
 			for _, child := range n.children {
-				parents := g.To(child)
+				parents := g.To(child.ID())
 
 				symdiffLogf("parents of %v: %v", child, graphNodeToNode(parents))
 				if len(parents) == 1 && len(child.children) > 0 {
@@ -146,8 +146,8 @@ func backpropagate(outputs, gradOutputs, wrt Nodes, prevDiffedSkip bool) (retVal
 	for i := 0; i < len(g.AllNodes()); i++ {
 		n := g.AllNodes()[i]
 
-		fr := len(g.From(n))
-		to := len(g.To(n))
+		fr := len(g.From(n.ID()))
+		to := len(g.To(n.ID()))
 
 		if fr == 0 && to == 0 && !n.isConstant() && !n.isInput() {
 			g.RemoveNode(n)
@@ -179,14 +179,14 @@ func backpropagate(outputs, gradOutputs, wrt Nodes, prevDiffedSkip bool) (retVal
 	wrtSet := wrt.mapSet()
 	badWRTs := wrtSet.Difference(affectsOutput)
 	if len(badWRTs) > 0 {
-		return nil, errors.Errorf("Non differentiable WRTs: %v", badWRTs)
+		return nil, SymDiffError{nodes: badWRTs.ToSlice(), err: errors.New("Non Differentiable WRTs")}
 	}
 
 	outputSet := outputs.mapSet()
 	badOutputs := outputSet.Difference(affectedByOutput)
 	if len(badOutputs) > 0 {
 		symdiffLogf("badOutputs: %#v", badOutputs)
-		return nil, errors.Errorf("Non differentiable outputs: %v", badOutputs)
+		return nil, SymDiffError{nodes: badOutputs.ToSlice(), err: errors.New("Non-Differentable Outputs")}
 	}
 
 	// map a node to a list of gradient terms
@@ -229,19 +229,29 @@ func backpropagate(outputs, gradOutputs, wrt Nodes, prevDiffedSkip bool) (retVal
 		// Check if there is any grads coming into this node
 		if len(nodeGradMap[node]) < 1 {
 			leaveLogScope()
-			return nil, errors.Errorf("No gradient node found for Node ID %x - %v", node.ID(), node)
+			return nil, SymDiffError{
+				single:  node,
+				gradMap: nodeGradMap,
+				err:     errors.New("No gradients found for node"),
+			}
 		}
 
 		// once we've reached a node, we already backpropagated from its dependents
 		// so we sum up the gradients
-		symdiffLogf("nodeGradMap[node]: %d", nodeGradMap[node])
+		symdiffLogf("nodeGradMap[%x]: %d", node.ID(), nodeGradMap[node])
 		if len(nodeGradMap[node]) > 1 {
 
 			var n *Node
 			symdiffLogf("reduce adding")
 			if n, err = ReduceAdd(nodeGradMap[node], WithGroupName(gradClust)); err != nil {
 				leaveLogScope()
-				return nil, errors.Wrap(err, "ReduceAdd failed during differentiation")
+				return nil, SymDiffError{
+					single:  node,
+					nodes:   nodeGradMap[node],
+					gradMap: nodeGradMap,
+					err:     errors.Wrap(err, "ReduceAdd failed during differentiation"),
+				}
+
 			}
 			symdiffLogf("reduced to... %x", n.ID())
 			// node.derives = append(node.derives, n)
@@ -265,13 +275,21 @@ func backpropagate(outputs, gradOutputs, wrt Nodes, prevDiffedSkip bool) (retVal
 			var ok bool
 
 			if op, ok = node.op.(SDOp); !ok {
-				// error
+				return nil, SymDiffError{
+					single: node,
+					err:    errors.New("Not a SymDifOp"),
+				}
 			}
 
 			symdiffLogf("op: %v || optype: %v ||  node: %v || Children: %#Y || Grad: %v", node.op, node.op.Type(), node.t, node.children, gradNode)
 			if childrenGrads, err = op.SymDiff(node.children, node, gradNode); err != nil {
 				leaveLogScope()
-				return nil, errors.Wrapf(err, "SymDiff for %v. OpType: %v. Node Type: %v. Children: %#v. Grad: %v", node.op, node.op.Type(), node.t, node.children, gradNode)
+				return nil, SymDiffError{
+					single:  node,
+					grad:    gradNode,
+					gradMap: nodeGradMap,
+					err:     errors.Wrapf(err, ".SymDiff() failed"),
+				}
 			}
 
 			symdiffLogf("Derived(%d): %P", len(childrenGrads), childrenGrads)

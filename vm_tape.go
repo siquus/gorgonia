@@ -121,7 +121,7 @@ func (m *tapeMachine) LocMap() map[*Node]register { return m.locMap }
 
 // Let wraps the Let() function of the package, with additional checks that n is in the machine
 func (m *tapeMachine) Let(n *Node, be interface{}) (err error) {
-	if !m.p.g.Has(n) {
+	if !m.p.g.Has(n.ID()) {
 		return errors.Errorf("Node %v does not exist in this graph", n)
 	}
 
@@ -130,10 +130,10 @@ func (m *tapeMachine) Let(n *Node, be interface{}) (err error) {
 
 // Set wraps the Set() function of this package, with additional checks that both a and b are in the machine
 func (m *tapeMachine) Set(a, b *Node) (err error) {
-	if !m.p.g.Has(a) {
+	if !m.p.g.Has(a.ID()) {
 		return errors.Errorf("Node %v does not exist in this graph", a)
 	}
-	if !m.p.g.Has(b) {
+	if !m.p.g.Has(b.ID()) {
 		return errors.Errorf("Node %v does not exist in this graph", b)
 	}
 
@@ -414,6 +414,14 @@ func (p *program) String() string {
 
 // Graph enables the end user to inspect the graph (typically useful for debugging)
 func (p *program) Graph() *ExprGraph { return p.g }
+
+func (p *program) CPUMemReq() int64 { return p.cpumem }
+
+func (p *program) GPUMemReq() []int64 {
+	retVal := make([]int64, len(p.gpumem))
+	copy(retVal, p.gpumem)
+	return retVal
+}
 
 /* REGISTER */
 

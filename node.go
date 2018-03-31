@@ -170,7 +170,7 @@ func WithShape(shp ...int) NodeConsOpt {
 		// if nd == 1 && s.IsVector() {
 		// 	goto safe
 		// }
-		if nd != s.Dims() {
+		if nd != s.Dims() && !(nd == 0 && scalarEquiv(s)) {
 			panic(fmt.Sprintf("Node %v, has %d dimensions(Shape: %v). Input shape is %v, which has %d dimensions", n, n.Dims(), n.shape, s, s.Dims()))
 		}
 		// safe:
@@ -235,6 +235,9 @@ func (n *Node) isRoot() bool {
 	}
 	return len(n.g.to[n]) == 0
 }
+
+// IsVar returns true if  the node represents a differentiable variable (i.e. it's an argument to the function that is not a statement)
+func (n *Node) IsVar() bool { return n.isArg() && !n.isStmt && !n.isConstant() }
 
 // type related isX() helper methods
 
@@ -478,7 +481,7 @@ func (n *Node) RestrictedToDot(up, down int) string {
 		origLen := len(upQ)
 		for i := 0; i < origLen; i++ {
 			qn := upQ[i]
-			toQN := graphNodeToNode(g.To(qn))
+			toQN := graphNodeToNode(g.To(qn.ID()))
 			upQ = append(upQ, toQN...)
 			ns = append(ns, toQN...)
 		}
