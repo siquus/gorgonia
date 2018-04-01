@@ -224,6 +224,6 @@ func TestBackpropagateMulti(t *testing.T) {
 		t.Fatal("RunAll", err)
 	}
 
-	assert.Equal(dxy[0].Value().Data().([]float64), []float64{4.0, 3.0})
-	assert.Equal(daxby[0].Value().Data().([]float64), []float64{8.0, 6.0})
+	assert.Equal([]float64{4.0, 3.0}, dxy[0].Value().Data().([]float64))
+	assert.Equal([]float64{8.0, 6.0}, daxby[0].Value().Data().([]float64))
 }
