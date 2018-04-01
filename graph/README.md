@@ -16,4 +16,6 @@ The part which diverges from traditional implementation of lambda calculus based
 
 The reason for doing this is mainly performance - performant on-the-fly graph reduction is surprisingly harder than expected to be implemented by one person. A naive version would take too long. So instead of a graph reduction, a graph walking algorithm is used, and the graph is reduced when the graph is defined.
 
+
 See the ALTERNATIVE DESIGNS document.
+
